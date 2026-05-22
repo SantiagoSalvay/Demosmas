@@ -495,7 +495,7 @@ router.get('/estadisticas', auth, async (req, res) => {
     }
 
     // Obtener estadísticas del usuario
-    const detalleUsuario = await prisma.DetalleUsuario.findUnique({
+    const detalleUsuario = await prisma.DetalleUsuario.findFirst({
       where: { id_usuario: usuarioId },
       include: {
         Usuario: {
