@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: demosmas
+    runtime: node
+    buildCommand: pnpm install && pnpm run build:render
+    startCommand: pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
