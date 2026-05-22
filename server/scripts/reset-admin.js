@@ -9,7 +9,6 @@ async function main() {
   try {
     const hash = await bcrypt.hash(plain, 10)
 
-    // Ensure Admin type exists
     let adminType = await prisma.tipoUsuario.findFirst({ where: { tipo_usuario: 'Admin' } })
     if (!adminType) {
       adminType = await prisma.tipoUsuario.create({ data: { tipo_usuario: 'Admin' } })
@@ -26,14 +25,28 @@ async function main() {
           nombre: existing.nombre || 'Super',
           apellido: existing.apellido || 'Admin',
           ubicacion: existing.ubicacion || 'HQ',
-          detalleUsuario: {
-            upsert: {
-              create: { email_verified: true },
-              update: { email_verified: true }
-            }
-          }
         }
       })
+
+      const existingDetalle = await prisma.detalleUsuario.findFirst({
+        where: { id_usuario: updated.id_usuario }
+      })
+
+      if (existingDetalle) {
+        await prisma.detalleUsuario.update({
+          where: { id_detalle_usuario: existingDetalle.id_detalle_usuario },
+          data: { email_verified: true }
+        })
+      } else {
+        await prisma.detalleUsuario.create({
+          data: {
+            id_usuario: updated.id_usuario,
+            email_verified: true,
+            auth_provider: 'email'
+          }
+        })
+      }
+
       console.log(`✅ Admin actualizado: ${updated.email}`)
     } else {
       const created = await prisma.usuario.create({
@@ -44,7 +57,7 @@ async function main() {
           contrasena: hash,
           id_tipo_usuario: adminType.id_tipo_usuario,
           ubicacion: 'HQ',
-          detalleUsuario: { create: { email_verified: true } }
+          DetalleUsuario: { create: { email_verified: true } }
         }
       })
       console.log(`✅ Admin creado: ${created.email}`)

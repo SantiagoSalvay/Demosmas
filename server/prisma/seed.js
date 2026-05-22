@@ -115,7 +115,7 @@ async function main() {
         contrasena: hashed,
         id_tipo_usuario: adminTipo.id_tipo_usuario,
         ubicacion: 'HQ',
-        detalleUsuario: { create: { email_verified: true } }
+        DetalleUsuario: { create: { email_verified: true } }
       }
     });
     console.log(`   ✅ Super Admin creado: ${adminUser.email} (pass: ${adminPassword})`);
