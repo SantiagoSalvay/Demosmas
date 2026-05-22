@@ -28,11 +28,13 @@ const PgSession = connectPgSimple(session);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cargar variables de entorno
+// Cargar variables de entorno (server/.env en local, variables de Render en producción)
+dotenv.config({ path: path.join(__dirname, "../.env") });
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || "0.0.0.0";
 const prisma = new PrismaClient();
 
 // Configurar trust proxy para Railway y otros proxies reversos
@@ -68,6 +70,8 @@ app.use(
       if (process.env.NODE_ENV === 'production') {
         if (
           origin.includes('railway.app') ||
+          origin.includes('render.com') ||
+          origin.includes('onrender.com') ||
           origin.includes('amplifyapp.com') ||
           origin.includes('demosmas.site')
         ) {
@@ -213,8 +217,8 @@ app.use((err, req, res, next) => {
 
 // Iniciar servidor solo fuera de test
 if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () => {
-    // Server started successfully
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 Servidor escuchando en http://${HOST}:${PORT}`);
   });
 }
 
