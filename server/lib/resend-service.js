@@ -1,14 +1,56 @@
 // Resend email service
 import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize Resend with API key
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend = null;
+
+function getResendClient() {
+  if (!process.env.RESEND_API_KEY) {
+    return null;
+  }
+
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+
+  return resend;
+}
+
+function hasSmtpConfig() {
+  return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+}
+
+function createSmtpTransporter() {
+  const host = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  const secure = process.env.SMTP_SECURE === 'true' ? true : port === 465;
+  const passRaw = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD || '';
+  const passSanitized = passRaw.replace(/\s+/g, '');
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user: process.env.SMTP_USER || process.env.EMAIL_USER,
+      pass: passSanitized,
+    },
+    requireTLS: !secure,
+    tls: {
+      rejectUnauthorized: false,
+    },
+  });
+}
 
 if (!process.env.RESEND_API_KEY) {
-  console.warn('⚠️ [RESEND] RESEND_API_KEY not configured. Please set it in .env');
+  if (hasSmtpConfig()) {
+    console.warn('⚠️ [EMAIL] RESEND_API_KEY not configured. Using SMTP fallback.');
+  } else {
+    console.warn('⚠️ [EMAIL] RESEND_API_KEY not configured. Email sending will be skipped.');
+  }
 }
 
 // Helper functions for sender details
@@ -22,24 +64,49 @@ const getFromName = () => {
 
 // Generic email sender
 async function sendEmail(to, subject, html) {
-  console.log('📧 [RESEND] Sending email:', { to, subject, from: getFromEmail() });
-  try {
-    const { data, error } = await resend.emails.send({
-      from: `${getFromName()} <${getFromEmail()}>`,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      html,
-    });
-    if (error) {
-      console.error('❌ [RESEND] Error sending email:', error);
-      throw error;
+  console.log('📧 [EMAIL] Sending email:', { to, subject, from: getFromEmail() });
+
+  const client = getResendClient();
+
+  if (client) {
+    try {
+      const { data, error } = await client.emails.send({
+        from: `${getFromName()} <${getFromEmail()}>`,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html,
+      });
+      if (error) {
+        console.error('❌ [RESEND] Error sending email:', error);
+        throw error;
+      }
+      console.log('✅ [RESEND] Email sent successfully:', data);
+      return data;
+    } catch (err) {
+      console.error('❌ [RESEND] sendEmail threw:', err);
+      throw err;
     }
-    console.log('✅ [RESEND] Email sent successfully:', data);
-    return data;
-  } catch (err) {
-    console.error('❌ [RESEND] sendEmail threw:', err);
-    throw err;
   }
+
+  if (hasSmtpConfig()) {
+    try {
+      const transporter = createSmtpTransporter();
+      const info = await transporter.sendMail({
+        from: `"${getFromName()}" <${process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER}>`,
+        to: Array.isArray(to) ? to.join(', ') : to,
+        subject,
+        html,
+      });
+      console.log('✅ [SMTP] Email sent successfully:', info.messageId);
+      return info;
+    } catch (err) {
+      console.error('❌ [SMTP] sendEmail threw:', err);
+      throw err;
+    }
+  }
+
+  console.warn('⚠️ [EMAIL] No email provider configured. Skipping email:', { to, subject });
+  return null;
 }
 
 // Email templates
@@ -296,6 +363,10 @@ export const emailService = {
     const template = emailTemplates.loginNotification(userName, loginInfo);
     return sendEmail(to, template.subject, template.html);
   },
+  sendOAuthAccountCreatedEmail: async (to, userName, provider) => {
+    const { emailService: smtpEmailService } = await import('./email-service.js');
+    return smtpEmailService.sendOAuthAccountCreatedEmail(to, userName, provider);
+  },
   sendONGRequestReceivedEmail: async (to, ongName, solicitudId) => {
     const template = emailTemplates.ongRequestReceived(ongName, solicitudId);
     return sendEmail(to, template.subject, template.html);
@@ -305,10 +376,18 @@ export const emailService = {
     return sendEmail(to, template.subject, template.html);
   },
   verifyTransporter: async () => {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error('RESEND_API_KEY no está configurada');
+    if (process.env.RESEND_API_KEY) {
+      console.log('✅ [RESEND] Configuración verificada');
+      return true;
     }
-    console.log('✅ [RESEND] Configuración verificada');
-    return true;
+
+    if (hasSmtpConfig()) {
+      const transporter = createSmtpTransporter();
+      await transporter.verify();
+      console.log('✅ [SMTP] Configuración verificada');
+      return true;
+    }
+
+    throw new Error('No hay proveedor de email configurado (RESEND_API_KEY o SMTP)');
   },
 };
