@@ -30,16 +30,15 @@
     "mailersend": "^2.6.0",
     "mercadopago": "^2.9.0",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^8.0.7",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-twitter": "^0.1.5",
-    "passport-twitter-oauth2": "^2.1.1",
     "prisma": "^6.18.0",
     "resend": "^6.5.2",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.6",
-    "uuid": "^9.0.1"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",

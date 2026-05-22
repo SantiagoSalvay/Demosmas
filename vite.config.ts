@@ -30,13 +30,24 @@ export default defineConfig({
     outDir: '../server/dist',
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Separar React y ReactDOM en su propio chunk
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          // Separar librerías de mapas
-          'map-vendor': ['leaflet', 'react-leaflet'],
-          // Separar librerías de UI
-          'ui-vendor': ['react-hot-toast', 'lucide-react'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/react-router-dom/')
+          ) {
+            return 'react-vendor'
+          }
+
+          if (id.includes('/leaflet/') || id.includes('/react-leaflet/')) {
+            return 'map-vendor'
+          }
+
+          if (id.includes('/react-hot-toast/') || id.includes('/lucide-react/')) {
+            return 'ui-vendor'
+          }
         },
       },
     },
